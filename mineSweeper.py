@@ -1,4 +1,5 @@
 import tkinter
+from tkinter import messagebox
 import random
 
 
@@ -14,18 +15,26 @@ class mineSweeper:
         self.MINE = "#"
         self.EMPTY_CELL = " "
 
-        width = 30
-        height = 25
-        amt_mines = 100
+        self.width = 20
+        self.height = 15
+        self.amt_mines = 20
+
+        self.amt_cells_cleared = 0
 
         # generate menu
         self.generate_menu()
 
         # creates a 2D list of buttons and adds in
-        self.cells = self.create_cell_list(height, width)
-        self.fill_cell_list(height, width, amt_mines)
+        self.cells = self.create_cell_list(self.height, self.width)
+        self.fill_cell_list(self.height, self.width, self.amt_mines)
 
         # adds the list of buttons into a grid
+        self.generate_cells(self.cells)
+
+    def reset(self):
+        self.amt_cells_cleared = 0
+        self.cells = self.create_cell_list(self.height, self.width)
+        self.fill_cell_list(self.height, self.width, self.amt_mines)
         self.generate_cells(self.cells)
 
     # generates a 2d list filled with buttons
@@ -76,8 +85,9 @@ class mineSweeper:
             tkinter.Grid.rowconfigure(self.mainframe, row_index, weight=1)
             for col_index in range(width):
                 tkinter.Grid.columnconfigure(self.mainframe, col_index, weight=1)
-                cells[row_index][col_index]["state"] = "normal"
-                cells[row_index][col_index].grid(row=row_index, column=col_index, sticky="nsew")
+                btn = cells[row_index][col_index]
+                btn["state"] = "normal"
+                btn.grid(row=row_index, column=col_index, sticky="nsew")
 
     def generate_menu(self):
         menubar = tkinter.Menu(self.master)
@@ -116,10 +126,13 @@ class mineSweeper:
     def clicked(self, row, col, recur):
         btn = self.cells[row][col]
         if btn["text"] == self.MINE and recur == False:
-            print("You Lose!")
+            self.losing_message()
+        elif self.amt_cells_cleared == ((self.width * self.height) - self.amt_mines):
+            self.winning_message()
         elif btn["text"] == self.EMPTY_CELL and btn["state"] == "normal":
             btn["state"] = "disabled"
-            btn.config(relief=tkinter.SUNKEN)
+            btn.config(relief=tkinter.SUNKEN, bg="white")
+            self.amt_cells_cleared += 1
             self.clicked(row - 1, col, True)
             self.clicked(row + 1, col, True)
             self.clicked(row - 1, col - 1, True)
@@ -128,12 +141,22 @@ class mineSweeper:
             self.clicked(row - 1, col + 1, True)
             self.clicked(row, col - 1, True)
             self.clicked(row, col + 1, True)
-        else:
+        elif btn["state"] == "normal":
+            self.amt_cells_cleared += 1
             btn["state"] = "disabled"
             btn.config(relief=tkinter.SUNKEN, bg="white")
+
+    def winning_message(self):
+        tkinter.messagebox.showinfo("WIN", "You Win!!!")
+        self.reset()
+
+    def losing_message(self):
+        tkinter.messagebox.showinfo("Loss", "You Lose!!!")
+        self.reset()
 
 
 if __name__ == '__main__':
     root = tkinter.Tk()
     mineSweeper(root)
     root.mainloop()
+
