@@ -1,3 +1,4 @@
+import time
 import tkinter
 from tkinter import messagebox
 import random
@@ -12,12 +13,17 @@ class mineSweeper:
         self.mainframe = tkinter.Frame(self.master, bg='white')
         self.mainframe.pack(fill=tkinter.BOTH, expand=True)
 
+        self.flag_image = "flag.png"
+        self.flag_image_for_button = tkinter.PhotoImage(file=self.flag_image)
+
+        # Buttons are tested based on their text values, these are constants
         self.MINE = "#"
         self.EMPTY_CELL = " "
+        self.BUFFER_CELL = "  "
 
-        self.width = 20
-        self.height = 15
-        self.amt_mines = 20
+        self.width = 16
+        self.height = 16
+        self.amt_mines = 40
 
         self.amt_cells_cleared = 0
 
@@ -26,15 +32,15 @@ class mineSweeper:
 
         # creates a 2D list of buttons and adds in
         self.cells = self.create_cell_list(self.height, self.width)
-        self.fill_cell_list(self.height, self.width, self.amt_mines)
 
         # adds the list of buttons into a grid
         self.generate_cells(self.cells)
 
     def reset(self):
+        for widget in self.mainframe.winfo_children():
+            widget.destroy()
         self.amt_cells_cleared = 0
         self.cells = self.create_cell_list(self.height, self.width)
-        self.fill_cell_list(self.height, self.width, self.amt_mines)
         self.generate_cells(self.cells)
 
     # generates a 2d list filled with buttons
@@ -50,21 +56,34 @@ class mineSweeper:
                                      bg="grey",
                                      fg="grey",
                                      command=lambda a=row, b=col, c=False:
-                                     self.clicked(a, b, c)
-                                     )
+                                     self.clicked(a, b, c))
+                btn.bind("<Button-3>", lambda e, a=row, b=col: self.flagged(a, b))
                 btn["state"] = "disabled"
                 list[row].append(btn)
         return list
 
     # randomly assigns mines to the list and ads proximity values to nearby cells
-    def fill_cell_list(self, rows, cols, amt_mines):
+    def fill_cell_list(self, rows, cols, amt_mines, y, x):
+        # creates buffer next to the first clicked button so that player always lands on and empty cell
+        first_button = self.cells[y][x]
+        first_button["text"] = self.BUFFER_CELL
+        self.cells[y - 1][x]["text"] = self.BUFFER_CELL
+        self.cells[y + 1][x]["text"] = self.BUFFER_CELL
+        self.cells[y][x - 1]["text"] = self.BUFFER_CELL
+        self.cells[y][x + 1]["text"] = self.BUFFER_CELL
+        self.cells[y - 1][x + 1]["text"] = self.BUFFER_CELL
+        self.cells[y - 1][x - 1]["text"] = self.BUFFER_CELL
+        self.cells[y + 1][x + 1]["text"] = self.BUFFER_CELL
+        self.cells[y + 1][x - 1]["text"] = self.BUFFER_CELL
+
         # fills with mines
         for x in range(amt_mines):
             btn = self.cells[random.randint(0, rows - 1)][random.randint(0, cols - 1)]
-            if btn["text"] == self.MINE:
-                while btn["text"] == self.MINE:
+            if btn["text"] == self.MINE or btn["text"] == self.BUFFER_CELL:
+                while btn["text"] == self.MINE or btn["text"] == self.BUFFER_CELL:
                     btn = self.cells[random.randint(0, rows - 1)][random.randint(0, cols - 1)]
             btn["text"] = self.MINE
+
         # fills with proximity values
         for row in range(rows):
             for col in range(cols):
@@ -74,7 +93,7 @@ class mineSweeper:
                 else:
                     neighbors = self.amt_neighbors(row, col)
                     if neighbors == 0:
-                        continue
+                        btn["text"] = self.EMPTY_CELL
                     else:
                         btn["text"] = neighbors
 
@@ -93,15 +112,51 @@ class mineSweeper:
         menubar = tkinter.Menu(self.master)
 
         game = tkinter.Menu(menubar, tearoff=0)
+        game.add_radiobutton(label="Beginner ( Width = 10, Height = 10, Mines = 12 )",
+                         command=self.beginner)
+        game.add_radiobutton(label="Intermediate ( Width = 16, Height = 16, Mines = 40 )",
+                         command=self.intermediate)
+        game.add_radiobutton(label="Expert ( Width = 30, Height = 16, Mines = 99 )",
+                         command=self.expert)
         menubar.add_cascade(label='Game', menu=game)
+
+        menubar.add_separator()
 
         display = tkinter.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Display", menu=display)
 
+        menubar.add_separator()
+
         reset = tkinter.Menu(menubar, tearoff=0)
+        reset.add_command(label="Click To Reset", command=self.reset)
         menubar.add_cascade(label="Reset", menu=reset)
 
         self.master.config(menu=menubar)
+
+    # -----------   MENU BAR METHODS   --------------------
+    def set_width(self, width):
+        self.width = width
+
+    def set_height(self, height):
+        self.height = height
+
+    def set_amt_mines(self, amt_mines):
+        self.amt_mines = amt_mines
+
+    def beginner(self):
+        self.width = 10
+        self.height = 10
+        self.amt_mines = 12
+
+    def intermediate(self):
+        self.width = 16
+        self.height = 16
+        self.amt_mines = 40
+
+    def expert(self):
+        self.width = 30
+        self.height = 16
+        self.amt_mines = 99
 
     def amt_neighbors(self, row, col):
         neighbors = 0
@@ -125,7 +180,13 @@ class mineSweeper:
 
     def clicked(self, row, col, recur):
         btn = self.cells[row][col]
+        if self.amt_cells_cleared == 0:
+            self.fill_cell_list(self.height, self.width, self.amt_mines, row, col)
+            self.amt_cells_cleared += 9
         if btn["text"] == self.MINE and recur == False:
+            btn["state"] = "disabled"
+            btn.config(relief=tkinter.SUNKEN, bg="red")
+            self.reveal_buttons()
             self.losing_message()
         elif self.amt_cells_cleared == ((self.width * self.height) - self.amt_mines):
             self.winning_message()
@@ -146,6 +207,15 @@ class mineSweeper:
             btn["state"] = "disabled"
             btn.config(relief=tkinter.SUNKEN, bg="white")
 
+    def flagged(self, row, col):
+        btn = self.cells[row][col]
+        if btn["state"] == "normal" and btn["relief"] != tkinter.SUNKEN:
+            btn["state"] = "disabled"
+            btn.config(image=self.flag_image_for_button)
+        elif btn['state'] == "disabled" and btn["relief"] != tkinter.SUNKEN:
+            btn["state"] = "normal"
+            btn.config(bg="grey", fg="grey", image="")
+
     def winning_message(self):
         tkinter.messagebox.showinfo("WIN", "You Win!!!")
         self.reset()
@@ -154,9 +224,27 @@ class mineSweeper:
         tkinter.messagebox.showinfo("Loss", "You Lose!!!")
         self.reset()
 
+    def reveal_buttons(self):
+        width = len(self.cells[0])
+        height = len(self.cells)
+
+        for row in range(height):
+            for col in range(width):
+                btn = self.cells[row][col]
+                if btn["state"] == "disabled" and btn["image"] == "":
+                    continue
+                else:
+                    btn["state"] = "disabled"
+                    btn.config(image="")
+                    if btn["text"] == self.MINE:
+                        btn.config(relief=tkinter.SUNKEN, bg="red")
+                    else:
+                        btn.config(relief=tkinter.SUNKEN, bg="yellow")
+
 
 if __name__ == '__main__':
     root = tkinter.Tk()
     mineSweeper(root)
     root.mainloop()
+
 
